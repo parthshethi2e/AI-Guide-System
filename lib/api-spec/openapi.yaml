@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Maturity Assessment Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: assessments
+    description: Assessment management
+  - name: responses
+    description: Survey response handling
+  - name: recommendations
+    description: AI recommendations
+  - name: dashboard
+    description: Dashboard and analytics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +31,187 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /assessments:
+    get:
+      operationId: listAssessments
+      tags: [assessments]
+      summary: List all assessments
+      responses:
+        "200":
+          description: List of assessments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assessment"
+    post:
+      operationId: createAssessment
+      tags: [assessments]
+      summary: Create a new assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssessmentInput"
+      responses:
+        "201":
+          description: Created assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+
+  /assessments/{id}:
+    get:
+      operationId: getAssessment
+      tags: [assessments]
+      summary: Get assessment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentWithResponses"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /assessments/{id}/submit:
+    post:
+      operationId: submitAssessment
+      tags: [assessments]
+      summary: Submit survey responses and generate results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAssessmentInput"
+      responses:
+        "200":
+          description: Assessment results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+
+  /assessments/{id}/result:
+    get:
+      operationId: getAssessmentResult
+      tags: [assessments]
+      summary: Get assessment result and recommendations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessment result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get platform-wide statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/maturity-distribution:
+    get:
+      operationId: getMaturityDistribution
+      tags: [dashboard]
+      summary: Get distribution of AI maturity levels
+      responses:
+        "200":
+          description: Maturity level distribution
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaturityDistributionItem"
+
+  /dashboard/recent-assessments:
+    get:
+      operationId: getRecentAssessments
+      tags: [dashboard]
+      summary: Get recent assessments
+      responses:
+        "200":
+          description: Recent assessments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assessment"
+
+  /dashboard/industry-benchmarks:
+    get:
+      operationId: getIndustryBenchmarks
+      tags: [dashboard]
+      summary: Get AI maturity benchmarks by industry
+      responses:
+        "200":
+          description: Industry benchmarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IndustryBenchmark"
+
+  /survey/questions:
+    get:
+      operationId: getSurveyQuestions
+      tags: [assessments]
+      summary: Get the full survey question set
+      responses:
+        "200":
+          description: Survey questions organized by category
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SurveyCategory"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +222,409 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message
+
+    CreateAssessmentInput:
+      type: object
+      properties:
+        organizationName:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+          enum: [startup, small, medium, large, enterprise]
+        geography:
+          type: string
+        contactName:
+          type: string
+        contactEmail:
+          type: string
+      required:
+        - organizationName
+        - industry
+        - companySize
+        - geography
+
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationName:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+        geography:
+          type: string
+        contactName:
+          type: string
+          nullable: true
+        contactEmail:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, in_progress, completed]
+        maturityLevel:
+          type: string
+          nullable: true
+          enum: [nascent, emerging, developing, advanced, leading, null]
+        overallScore:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - organizationName
+        - industry
+        - companySize
+        - geography
+        - status
+        - createdAt
+
+    SurveyResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        assessmentId:
+          type: integer
+        questionId:
+          type: string
+        category:
+          type: string
+        numericValue:
+          type: number
+          nullable: true
+        textValue:
+          type: string
+          nullable: true
+      required:
+        - id
+        - assessmentId
+        - questionId
+        - category
+
+    AssessmentWithResponses:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationName:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+        geography:
+          type: string
+        contactName:
+          type: string
+          nullable: true
+        contactEmail:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, in_progress, completed]
+        maturityLevel:
+          type: string
+          nullable: true
+        overallScore:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        responses:
+          type: array
+          items:
+            $ref: "#/components/schemas/SurveyResponse"
+      required:
+        - id
+        - organizationName
+        - industry
+        - companySize
+        - geography
+        - status
+        - createdAt
+        - responses
+
+    SurveyAnswer:
+      type: object
+      properties:
+        questionId:
+          type: string
+        category:
+          type: string
+        numericValue:
+          type: number
+          nullable: true
+        textValue:
+          type: string
+          nullable: true
+      required:
+        - questionId
+        - category
+
+    SubmitAssessmentInput:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SurveyAnswer"
+      required:
+        - answers
+
+    CategoryScore:
+      type: object
+      properties:
+        category:
+          type: string
+        categoryLabel:
+          type: string
+        score:
+          type: number
+        maxScore:
+          type: number
+        percentage:
+          type: number
+      required:
+        - category
+        - categoryLabel
+        - score
+        - maxScore
+        - percentage
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        timeframe:
+          type: string
+          enum: [short_term, mid_term, long_term]
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        effort:
+          type: string
+          enum: [low, medium, high]
+        impact:
+          type: string
+          enum: [low, medium, high]
+        tools:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - title
+        - description
+        - category
+        - timeframe
+        - priority
+        - effort
+        - impact
+        - tools
+
+    AssessmentResult:
+      type: object
+      properties:
+        assessmentId:
+          type: integer
+        organizationName:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+        maturityLevel:
+          type: string
+        maturityLabel:
+          type: string
+        overallScore:
+          type: number
+        maxScore:
+          type: number
+        percentage:
+          type: number
+        categoryScores:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryScore"
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+        executiveSummary:
+          type: string
+        strengthAreas:
+          type: array
+          items:
+            type: string
+        gapAreas:
+          type: array
+          items:
+            type: string
+        completedAt:
+          type: string
+          format: date-time
+      required:
+        - assessmentId
+        - organizationName
+        - industry
+        - companySize
+        - maturityLevel
+        - maturityLabel
+        - overallScore
+        - maxScore
+        - percentage
+        - categoryScores
+        - recommendations
+        - executiveSummary
+        - strengthAreas
+        - gapAreas
+        - completedAt
+
+    DashboardStats:
+      type: object
+      properties:
+        totalAssessments:
+          type: integer
+        completedAssessments:
+          type: integer
+        averageScore:
+          type: number
+        averageMaturityLevel:
+          type: string
+        assessmentsThisMonth:
+          type: integer
+        topIndustry:
+          type: string
+      required:
+        - totalAssessments
+        - completedAssessments
+        - averageScore
+        - averageMaturityLevel
+        - assessmentsThisMonth
+        - topIndustry
+
+    MaturityDistributionItem:
+      type: object
+      properties:
+        level:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required:
+        - level
+        - label
+        - count
+        - percentage
+
+    IndustryBenchmark:
+      type: object
+      properties:
+        industry:
+          type: string
+        averageScore:
+          type: number
+        topScore:
+          type: number
+        assessmentCount:
+          type: integer
+      required:
+        - industry
+        - averageScore
+        - topScore
+        - assessmentCount
+
+    SurveyQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+          enum: [scale, multiple_choice, text]
+        options:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              value:
+                type: number
+              label:
+                type: string
+            required:
+              - value
+              - label
+        weight:
+          type: number
+        helpText:
+          type: string
+          nullable: true
+      required:
+        - id
+        - text
+        - type
+        - weight
+
+    SurveyCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SurveyQuestion"
+      required:
+        - id
+        - label
+        - description
+        - icon
+        - questions

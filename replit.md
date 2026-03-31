@@ -1,8 +1,8 @@
-# Workspace
+# AI Maturity Assessment Platform
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+A production-ready universal AI assessment platform that helps organizations evaluate their AI readiness across 7 dimensions and receive personalized transformation roadmaps.
 
 ## Stack
 
@@ -12,85 +12,91 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
+- **Validation**: Zod, drizzle-zod
 - **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Build**: esbuild (ESM bundle)
+- **Frontend**: React + Vite + shadcn/ui + Tailwind CSS
+- **Charts**: Recharts (RadarChart, BarChart)
+- **Routing**: Wouter
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+├── artifacts/
+│   ├── ai-assessment/       # React + Vite frontend (preview: /)
+│   └── api-server/          # Express API server (preview: /api)
+├── lib/
+│   ├── api-spec/            # OpenAPI spec + Orval codegen config
+│   ├── api-client-react/    # Generated React Query hooks
+│   ├── api-zod/             # Generated Zod schemas from OpenAPI
+│   └── db/                  # Drizzle ORM schema + DB connection
+├── scripts/                 # Utility scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
-## TypeScript & Composite Projects
+## Features
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+### Assessment Platform
+- **7-Category Survey**: Data Infrastructure, Technology Stack, AI/ML Usage, Workforce Skills, Leadership Vision, Operational Processes, Governance & Ethics
+- **23 weighted questions** spanning all AI maturity dimensions
+- **Multi-step wizard** with progress tracking and category navigation
+- **Automatic scoring** using weighted question scoring engine
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+### AI Maturity Classification
+Five levels: Nascent → Emerging → Developing → Advanced → Leading
+- Score-based classification using percentage thresholds
+- Per-category radar chart visualization
 
-## Root Scripts
+### Recommendation Engine
+- Tailored recommendations based on category weakness scores
+- Grouped by timeframe: Short-term, Mid-term, Long-term
+- Priority levels: Critical, High, Medium, Low
+- Tool recommendations for each action item
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+### Dashboard & Analytics
+- Platform-wide statistics
+- Maturity level distribution chart
+- Industry benchmark comparison
+- Recent assessments feed
 
-## Packages
+## API Routes
 
-### `artifacts/api-server` (`@workspace/api-server`)
+### Assessments
+- `GET /api/assessments` — List all assessments
+- `POST /api/assessments` — Create new assessment
+- `GET /api/assessments/:id` — Get assessment with responses
+- `POST /api/assessments/:id/submit` — Submit survey and generate results
+- `GET /api/assessments/:id/result` — Get computed result
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+### Survey
+- `GET /api/survey/questions` — Get full question set by category
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+### Dashboard
+- `GET /api/dashboard/stats` — Platform statistics
+- `GET /api/dashboard/maturity-distribution` — Level distribution
+- `GET /api/dashboard/recent-assessments` — Recent 10 assessments
+- `GET /api/dashboard/industry-benchmarks` — Industry comparisons
 
-### `lib/db` (`@workspace/db`)
+## Database Schema
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+- `assessments` — Organization info, status, maturity level, score
+- `survey_responses` — Individual question answers with numeric/text values
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+## Key Files
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+- `artifacts/api-server/src/lib/survey-data.ts` — Survey questions with weighted scoring
+- `artifacts/api-server/src/lib/recommendation-engine.ts` — Maturity classification + recommendation generation
+- `artifacts/api-server/src/routes/assessments.ts` — Assessment CRUD and submission logic
+- `artifacts/api-server/src/routes/dashboard.ts` — Analytics endpoints
+- `lib/api-spec/openapi.yaml` — Full API contract (OpenAPI 3.1)
 
-### `lib/api-spec` (`@workspace/api-spec`)
+## Development
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- `pnpm --filter @workspace/api-server run dev` — Start API server
+- `pnpm --filter @workspace/ai-assessment run dev` — Start frontend
+- `pnpm --filter @workspace/db run push` — Push schema to database
+- `pnpm --filter @workspace/api-spec run codegen` — Regenerate API client
