@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -31,24 +31,25 @@ export default function AssessmentWizard() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, SurveyAnswer>>({});
+  const initializedRef = useRef(false);
 
   const isLoading = assessmentLoading || questionsLoading;
   
-  // Initialize answers if assessment has previous responses
+  // Initialize answers from existing responses — only once, when assessment first loads
   useEffect(() => {
-    if (assessment?.responses && Object.keys(answers).length === 0) {
-      const initialAnswers: Record<string, SurveyAnswer> = {};
-      assessment.responses.forEach(r => {
-        initialAnswers[r.questionId] = {
-          questionId: r.questionId,
-          category: r.category,
-          numericValue: r.numericValue,
-          textValue: r.textValue
-        };
-      });
-      setAnswers(initialAnswers);
-    }
-  }, [assessment, answers]);
+    if (initializedRef.current || !assessment?.responses || assessment.responses.length === 0) return;
+    initializedRef.current = true;
+    const initialAnswers: Record<string, SurveyAnswer> = {};
+    assessment.responses.forEach(r => {
+      initialAnswers[r.questionId] = {
+        questionId: r.questionId,
+        category: r.category,
+        numericValue: r.numericValue,
+        textValue: r.textValue
+      };
+    });
+    setAnswers(initialAnswers);
+  }, [assessment]);
 
   const handleAnswer = (questionId: string, categoryId: string, field: 'numericValue' | 'textValue', value: any) => {
     setAnswers(prev => ({
